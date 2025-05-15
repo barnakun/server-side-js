@@ -1,0 +1,42 @@
+<%- include('header') %>
+
+<div class="container">
+  <div class="d-flex flex-column mt-4">
+    <div class="mb-2">
+      <h2><%= book.title %></h2>
+      <h5><%= book.author %></h5>
+    </div>
+    <p><%= book.description %></p>
+  </div>
+
+  <div class="d-flex flex-column mt-3">
+    <div class="d-flex flex-row justify-content-between">
+      <h5>Értékelések</h5>
+      <a href="/form/review/<%= book._id %>/new">Hozzáad</a>
+    </div>
+
+    <hr class="mt-0 mb-1">
+
+    <table class="table">
+      <tbody>
+      <% if (reviews && reviews.length > 0) { %>
+        <% reviews.forEach(review => { %>
+          <tr>
+            <td><%= review.rating %></td>
+            <td><%= review.text %></td>
+            <td>
+              <a href="/review/<%= book._id %>/<%= review._id %>/delete" class="btn btn-danger" onclick="return confirm('Biztosan törölni szeretné ezt az értékelést?')">Törlés</a>
+            </td>
+          </tr>
+        <% }); %>
+      <% } else { %>
+        <tr>
+          <td colspan="3" class="text-center">Nincs értékelés ehhez a könyvhöz</td>
+        </tr>
+      <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('footer') %>

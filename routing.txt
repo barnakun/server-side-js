@@ -1,0 +1,66 @@
+Views:
+- index.html : Könyvek listája, valamint szűrès műfajra és keresés címre
+- database.html : Könyvek listája, kereséssel, módosításra, törlésre. Lehetőség új könyv felvételére.
+- bookform.html : Új könyv felvételére vagy meglévő könyv módosítására szolgáló űrlap.
+- book.html : Egy könyv oldala, ahol a könyv adatai, valamint értékelések láthatóak és vélemény törlésére, hozzáfűzésére is lehetőség van.
+- reviewform.html : Új vélemény hozzáfűzésére szolgáló űrlap.
+
+
+Middlewares:
+/generic/
+- renderMW(viewName) : Rendereli a view-t.
+/book/
+- getBooksMW(query, genre) : Betölti az összes könyvet, vagy a keresési és/vagy szűrési eredményeket.
+- getBookMW(bookid) : Betölti a könyv adatait.
+- saveBookMW() : Mentés, ha új könyv, akkor létrehozza, ha meglévő, akkor módosítja.
+- deleteBookMW() : Törli a könyvet.
+/review/
+- getReviewsMW(bookid) : Betölti a könyv értékeléseit.
+- getReviewMW(reviewid) : Betölti a véleményt.
+- saveReviewMW() : Mentés, ha új vélemény, akkor létrehozza.
+- deleteReviewMW() : Törli a véleményt.
+
+
+Routing:
+- GET / : index.html
+    - getBooksMW() - Betölti az összes könyvet.
+    - renderMW(index.html)
+- GET /?search=:query : index.html (search)
+    - getBooksMW(query) - Betölti a keresési eredményeket, ha nincs paraméter, akkor egy könyvet sem tölt be.
+    - renderMW(index.html)
+- GET /?filter=:genre : index.html (filter)
+    - getBooksMW(genre) - Betölti a szűrési eredményeket.
+    - renderMW(index.html)
+- GET /?search=:query&filter=:genre : index.html (search and filter)
+    - getBooksMW(query, genre) - Betölti a keresési és szűrési eredményeket.
+    - renderMW(index.html)
+
+- GET /database : database.html
+    - getBooksMW() - Betölti az összes könyvet.
+    - renderMW(database.html)
+- GET /database?search=:query : database.html (search)
+    - getBooksMW(query) - Betölti a keresési eredményeket, ha nincs paraméter, akkor egy könyvet sem tölt be.
+    - renderMW(database.html)
+
+- GET, POST /book/new : bookform.html (new)
+    - saveBookMW() - Ha nincs post paraméter, akkor csak renderel, ha van, akkor menti az adatokat, ha hibásak, akkor változóba menti a hibákat és csak renderel, ha sikerült, akkor redirectel.
+    - renderMW(bookform.html)
+- GET, POST /book/:bookid/edit : bookform.html (edit)
+    - getBookMW(bookid) - Ha adatbázisban van a könyv, akkor a könyv adatait betölti a formba, ha nincs, akkor redirectel.
+    - saveBookMW() - Ha van adat, akkor módosítja a könyvet, ha hibásak a paraméterek, akkor változóba menti a hibákat és csak renderel, ha sikerült, akkor redirectel.
+    - renderMW(bookform.html)
+- GET /book/:bookid/delete : (delete)
+    - getBookMW(bookid) - Ha nincs könyv, akkor redirectel.
+    - deleteBookMW() - Törli a könyvet, majd redirectel.
+
+- GET /book/:bookid : book.html
+    - getBookMW(bookid) - Ha nincs könyv, akkor redirectel.
+    - getReviewsMW(bookid) - Betölti a könyv értékeléseit.
+    - renderMW(book.html)
+
+- GET, POST /review/:bookid/new : reviewform.html (new)
+    - saveReviewMW() - Ha nincs post paraméter, akkor csak renderel, ha van, akkor menti az adatokat, ha hibásak, akkor változóba menti a hibákat és csak renderel, ha sikerült, akkor redirectel.
+    - renderMW(reviewform.html)
+- GET /review/:bookid/:reviewid/delete : (delete)
+    - getReviewMW(reviewid) - Ha nincs vélemény, akkor redirectel.
+    - deleteReviewMW() - Törli a véleményt, majd redirectel.

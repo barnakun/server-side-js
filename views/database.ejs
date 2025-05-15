@@ -1,0 +1,47 @@
+<%- include('header') %>
+
+<div class="container">
+  <div class="d-flex flex-row mb-3 justify-content-between mt-4">
+    <form class="d-flex" role="search" method="GET" action="/database">
+      <input class="form-control me-2" type="search" name="search" placeholder="Keresés" aria-label="Search" value="<%= typeof search !== 'undefined' ? search : '' %>">
+      <button class="btn btn-outline-primary" type="submit">Keresés</button>
+    </form>
+    <a type="button" class="btn btn-primary" href="/form/book/new">Új hozzáadása</a>
+  </div>
+
+  <table class="table table-bordered table-hover">
+    <thead class="table-primary">
+    <tr>
+      <th scope="col">Cím</th>
+      <th scope="col">Író</th>
+      <th scope="col">Műfaj</th>
+      <th scope="col">Leírás</th>
+      <th scope="col"></th>
+    </tr>
+    </thead>
+    <tbody>
+    <% if (books && books.length > 0) { %>
+      <% books.forEach(book => { %>
+        <tr>
+          <td><%= book.title %></td>
+          <td><%= book.author %></td>
+          <td><%= book.genre %></td>
+          <td><%= book.description.length > 100 ? book.description.substring(0, 100) + '...' : book.description %></td>
+          <td>
+            <div class="btn-group" role="group" aria-label="Action">
+              <a type="button" class="btn btn-warning" href="/form/book/<%= book._id %>/edit">Módosítás</a>
+              <a type="button" class="btn btn-danger" href="/book/<%= book._id %>/delete" onclick="return confirm('Biztosan törölni szeretné ezt a könyvet?')">Törlés</a>
+            </div>
+          </td>
+        </tr>
+      <% }); %>
+    <% } else { %>
+      <tr>
+        <td colspan="5" class="text-center">Nincs megjeleníthető könyv</td>
+      </tr>
+    <% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('footer') %>

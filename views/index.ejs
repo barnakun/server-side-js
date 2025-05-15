@@ -1,0 +1,51 @@
+<%- include('header') %>
+
+<div class="container">
+    <div class="d-flex flex-row mb-3 justify-content-between mt-4">
+        <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                Műfaj
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="/">Összes</a></li>
+                <% genres.forEach(genre => { %>
+                    <li><a class="dropdown-item" href="/?filter=<%= genre %>"><%= genre %></a></li>
+                <% }); %>
+            </ul>
+        </div>
+
+        <form class="d-flex" role="search" method="GET" action="/">
+            <input class="form-control me-2" type="search" name="search" placeholder="Keresés" aria-label="Search" value="<%= typeof search !== 'undefined' ? search : '' %>">
+            <button class="btn btn-outline-primary" type="submit">Keresés</button>
+        </form>
+    </div>
+
+    <table class="table table-bordered table-hover">
+        <thead class="table-primary">
+        <tr>
+            <th scope="col">Cím</th>
+            <th scope="col">Író</th>
+            <th scope="col">Műfaj</th>
+            <th scope="col">Leírás</th>
+        </tr>
+        </thead>
+        <tbody>
+        <% if (books && books.length > 0) { %>
+            <% books.forEach(book => { %>
+                <tr>
+                    <td><a href="/book/<%= book._id %>"><%= book.title %></a></td>
+                    <td><%= book.author %></td>
+                    <td><%= book.genre %></td>
+                    <td><%= book.description.length > 100 ? book.description.substring(0, 100) + '...' : book.description %></td>
+                </tr>
+            <% }); %>
+        <% } else { %>
+            <tr>
+                <td colspan="4" class="text-center">Nincs megjeleníthető könyv</td>
+            </tr>
+        <% } %>
+        </tbody>
+    </table>
+</div>
+
+<%- include('footer') %>
