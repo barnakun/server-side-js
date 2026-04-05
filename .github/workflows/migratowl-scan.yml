@@ -1,169 +1,47 @@
-name: MigratOwl Scan
+# docs/examples/dependabot-scan.yml
+#
+# Drop this file into .github/workflows/ in any repo you want Migratowl to scan.
+#
+# Requirements:
+#   - Set MIGRATOWL_URL as a repository variable (Settings → Variables → Actions)
+#     e.g. https://migratowl.internal.yourcompany.com
+#   - Migratowl must be configured with a GitHub token that has:
+#       repo:status  — to set commit statuses
+#       public_repo  — to post PR comments (or full "repo" for private repos)
+#
+# For GitHub Enterprise Server:
+#   - Set MIGRATOWL_URL to point at your Migratowl instance
+#   - Set GITHUB_API_URL in Migratowl's .env to your GHES API URL
+#     e.g. GITHUB_API_URL=https://github.corp.com/api/v3
+#
+# For GitLab (self-hosted or gitlab.com):
+#   - Change git_provider to "gitlab"
+#   - Set GITLAB_TOKEN and GITLAB_API_URL in Migratowl's .env
+
+name: Migratowl Dependency Scan
 
 on:
-  workflow_dispatch:
-    inputs:
-      branch:
-        description: "Branch to scan"
-        required: false
-        default: "main"
-      ecosystems:
-        description: "Ecosystems to scan (comma-separated: nodejs,python,go,java) — leave blank for auto-detect"
-        required: false
-        default: ""
-      max_deps:
-        description: "Maximum number of dependencies to analyse"
-        required: false
-        default: "50"
-      exclude_deps:
-        description: "Dependencies to skip (comma-separated) — leave blank to skip none"
-        required: false
-        default: ""
+  pull_request:
+    types: [opened, synchronize]
+
+# Minimal permissions — Migratowl uses its own token to post comments and statuses.
+permissions:
+  contents: read
 
 jobs:
-  scan:
-    name: Dependency migration scan
+  migratowl-scan:
+    # Only run for Dependabot PRs. Remove this condition to scan all PRs.
+    if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
-
     steps:
-      - name: Trigger MigratOwl scan
-        id: trigger
-        env:
-          MIGRATOWL_URL: ${{ secrets.MIGRATOWL_URL }}
-          REPO_URL: "https://github.com/${{ github.repository }}"
-          BRANCH: ${{ inputs.branch }}
-          MAX_DEPS: ${{ inputs.max_deps }}
-          ECOSYSTEMS_RAW: ${{ inputs.ecosystems }}
-          EXCLUDE_RAW: ${{ inputs.exclude_deps }}
+      - name: Trigger Migratowl scan
         run: |
-          # Build optional ecosystems array
-          ECOSYSTEMS_JSON="null"
-          if [ -n "$ECOSYSTEMS_RAW" ]; then
-            ECOSYSTEMS_JSON=$(echo "$ECOSYSTEMS_RAW" | tr ',' '\n' \
-              | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
-              | jq -R . | jq -sc .)
-          fi
-
-          # Build optional exclude_deps array
-          EXCLUDE_JSON="[]"
-          if [ -n "$EXCLUDE_RAW" ]; then
-            EXCLUDE_JSON=$(echo "$EXCLUDE_RAW" | tr ',' '\n' \
-              | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
-              | jq -R . | jq -sc .)
-          fi
-
-          PAYLOAD=$(jq -n \
-            --arg repo_url    "$REPO_URL" \
-            --arg branch_name "$BRANCH" \
-            --argjson max_deps "$MAX_DEPS" \
-            --argjson ecosystems "$ECOSYSTEMS_JSON" \
-            --argjson exclude_deps "$EXCLUDE_JSON" \
-            '{
-              repo_url:     $repo_url,
-              branch_name:  $branch_name,
-              max_deps:     $max_deps,
-              ecosystems:   $ecosystems,
-              exclude_deps: $exclude_deps
-            }')
-
-          echo "Payload: $PAYLOAD"
-
-          RESPONSE=$(curl -fsSL -X POST \
+          curl --fail-with-body -X POST "${{ vars.MIGRATOWL_URL }}/webhook" \
             -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
-            "${MIGRATOWL_URL}/webhook")
-
-          echo "Response: $RESPONSE"
-
-          JOB_ID=$(echo "$RESPONSE" | jq -r '.job_id')
-          echo "job_id=${JOB_ID}" >> "$GITHUB_OUTPUT"
-          echo "Job ID: ${JOB_ID}"
-
-      - name: Wait for scan to complete
-        id: poll
-        env:
-          MIGRATOWL_URL: ${{ secrets.MIGRATOWL_URL }}
-          JOB_ID: ${{ steps.trigger.outputs.job_id }}
-        run: |
-          echo "Polling job ${JOB_ID} …"
-
-          MAX_WAIT=1800   # 30 minutes
-          INTERVAL=15
-          ELAPSED=0
-
-          while true; do
-            STATUS_JSON=$(curl -fsSL "${MIGRATOWL_URL}/jobs/${JOB_ID}")
-            STATE=$(echo "$STATUS_JSON" | jq -r '.state')
-
-            echo "[${ELAPSED}s] state=${STATE}"
-
-            if [ "$STATE" = "completed" ]; then
-              echo "$STATUS_JSON" > scan_result.json
-              echo "state=completed" >> "$GITHUB_OUTPUT"
-              break
-            fi
-
-            if [ "$STATE" = "failed" ]; then
-              ERROR=$(echo "$STATUS_JSON" | jq -r '.error // "unknown error"')
-              echo "Scan failed: ${ERROR}"
-              echo "state=failed" >> "$GITHUB_OUTPUT"
-              echo "$STATUS_JSON" > scan_result.json
-              exit 1
-            fi
-
-            if [ "$ELAPSED" -ge "$MAX_WAIT" ]; then
-              echo "Timed out after ${MAX_WAIT}s waiting for scan to complete."
-              exit 1
-            fi
-
-            sleep "$INTERVAL"
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
-
-      - name: Print scan report
-        if: always() && steps.poll.outputs.state == 'completed'
-        run: |
-          echo "### MigratOwl Scan Results" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
-          REPO=$(jq -r '.result.repo_url' scan_result.json)
-          BRANCH=$(jq -r '.result.branch_name' scan_result.json)
-          DURATION=$(jq -r '.result.total_duration_seconds' scan_result.json)
-          OUTDATED=$(jq '.result.scan_result.outdated | length' scan_result.json)
-          REPORTS=$(jq '.result.reports | length' scan_result.json)
-          SKIPPED=$(jq '.result.skipped | length' scan_result.json)
-
-          echo "**Repo:** \`${REPO}\` @ \`${BRANCH}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Duration:** ${DURATION}s | **Outdated deps:** ${OUTDATED} | **Analysed:** ${REPORTS} | **Skipped:** ${SKIPPED}" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
-          # Per-dependency table (breaking only)
-          BREAKING=$(jq '[.result.reports[] | select(.is_breaking == true)]' scan_result.json)
-          BREAKING_COUNT=$(echo "$BREAKING" | jq 'length')
-
-          if [ "$BREAKING_COUNT" -gt "0" ]; then
-            echo "#### Breaking changes ($BREAKING_COUNT)" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "| Dependency | Confidence | Error summary |" >> "$GITHUB_STEP_SUMMARY"
-            echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
-            echo "$BREAKING" | jq -r '.[] | "| \(.dependency_name) | \(.confidence) | \(.error_summary) |"' >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No breaking changes detected." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          # Safe updates
-          SAFE=$(jq '[.result.reports[] | select(.is_breaking == false)] | map(.dependency_name) | join(", ")' -r scan_result.json)
-          if [ -n "$SAFE" ]; then
-            echo "**Safe to update:** ${SAFE}" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          cat "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload full scan result
-        if: always() && hashFiles('scan_result.json') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: migratowl-scan-result
-          path: scan_result.json
-          retention-days: 30
+            -d '{
+              "repo_url": "${{ github.event.repository.clone_url }}",
+              "branch_name": "${{ github.head_ref }}",
+              "git_provider": "github",
+              "pr_number": ${{ github.event.pull_request.number }},
+              "commit_sha": "${{ github.event.pull_request.head.sha }}"
+            }'
