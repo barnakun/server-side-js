@@ -75,10 +75,10 @@ jobs:
 
       - name: Verify secrets are set
         env:
-          HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          echo "ANTHROPIC_API_KEY configured: $HAS_ANTHROPIC_KEY"
-          [ "$HAS_ANTHROPIC_KEY" = "true" ] || { echo "ERROR: ANTHROPIC_API_KEY secret is empty or not set"; exit 1; }
+          [ -n "$ANTHROPIC_API_KEY" ] || { echo "ERROR: ANTHROPIC_API_KEY secret is empty or not set"; exit 1; }
+          echo "ANTHROPIC_API_KEY is set (length: ${#ANTHROPIC_API_KEY})"
 
 
       - name: Apply raw-mode RBAC to kind cluster
