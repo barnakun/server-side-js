@@ -120,7 +120,7 @@ jobs:
       - name: Start Migratowl server
         env:
           MIGRATOWL_SANDBOX_MODE: raw
-          MIGRATOWL_SANDBOX_IMAGE: python:3.12-slim
+          MIGRATOWL_SANDBOX_IMAGE: node:22-slim
           MIGRATOWL_SANDBOX_BLOCK_NETWORK: "false"
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
