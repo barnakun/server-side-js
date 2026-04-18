@@ -46,6 +46,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      statuses: write
 
     steps:
       - name: Checkout
@@ -71,6 +72,14 @@ jobs:
       - name: Install Migratowl
         run: uv sync --frozen
         working-directory: .migratowl
+
+      - name: Verify secrets are set
+        env:
+          HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          echo "ANTHROPIC_API_KEY configured: $HAS_ANTHROPIC_KEY"
+          [ "$HAS_ANTHROPIC_KEY" = "true" ] || { echo "ERROR: ANTHROPIC_API_KEY secret is empty or not set"; exit 1; }
+
 
       - name: Apply raw-mode RBAC to kind cluster
         # This gives Migratowl permission to create/delete sandbox Pods and
@@ -193,18 +202,27 @@ jobs:
         env:
           JOB_ID: ${{ steps.trigger.outputs.job_id }}
         run: |
-          for i in $(seq 1 60); do
+          echo "Waiting 5 minutes before first poll..."
+          sleep 300
+
+          DEADLINE=$(($(date +%s) + 3600))
+          while [ $(date +%s) -lt $DEADLINE ]; do
             RESPONSE=$(curl -sf "http://127.0.0.1:8000/jobs/$JOB_ID")
             STATE=$(echo "$RESPONSE" | jq -r .state)
-            echo "[$i/60] state: $STATE"
+            echo "[$(date -u +%H:%M:%S)] state: $STATE"
             if [ "$STATE" = "completed" ] || [ "$STATE" = "failed" ]; then
               echo "$RESPONSE" > /tmp/scan-result.json
               echo "final_state=$STATE" >> "$GITHUB_OUTPUT"
               break
             fi
-            sleep 10
+            sleep 30
           done
-          [ "$STATE" = "completed" ] || [ "$STATE" = "failed" ] || { cat /tmp/migratowl.log; exit 1; }
+
+          if [ "$STATE" != "completed" ] && [ "$STATE" != "failed" ]; then
+            echo "Scan timed out after 1 hour"
+            cat /tmp/migratowl.log
+            exit 1
+          fi
 
       - name: Print scan summary
         if: always()
