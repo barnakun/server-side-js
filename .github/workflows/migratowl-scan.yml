@@ -38,7 +38,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: bitkaio/migratowl
-          ref: v0.4.0
           path: .migratowl
           persist-credentials: false
 
