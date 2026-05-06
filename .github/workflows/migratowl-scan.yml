@@ -38,7 +38,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: bitkaio/migratowl
-          ref: v0.4.0
           path: .migratowl
           persist-credentials: false
 
@@ -138,8 +137,14 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             BRANCH="$DEFAULT_BRANCH"
-          else
+          elif echo "$HEAD_BRANCH" | grep -q "^dependabot/"; then
+            # Dependabot PR: scan base — dep is already bumped on the head branch,
+            # so scanning head would show it as "already at latest" and skip it.
             BRANCH="$BASE_BRANCH"
+          else
+            # Regular PR: scan head — test the actual submitted code against
+            # upgraded deps, not the base branch which may lack new test files.
+            BRANCH="$HEAD_BRANCH"
           fi
 
           # Extract dep name from Dependabot branch: dependabot/<ecosystem>/<name>-<version>
