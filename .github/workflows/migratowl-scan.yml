@@ -8,7 +8,7 @@ name: Migratowl Dependency Scan
 on:
   workflow_dispatch: {}
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -21,7 +21,7 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-      - uses: bitkaio/migratowl-action@v1
+      - uses: bitkaio/migratowl-action@fix/check-deps-env-format
         with:
           model-provider: openai
           llm-base-url: https://openrouter.ai/api/v1
